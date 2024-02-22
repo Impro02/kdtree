@@ -111,5 +111,3 @@ func distance(p1, p2 *Point) float64 {
 	}
 	return math.Sqrt(ret)
 }
-
-func main() {}
