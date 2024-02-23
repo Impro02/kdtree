@@ -14,12 +14,12 @@ First, define the points you want to add to the KD-Tree:
 
 ```go
 points := []Point{
-    {Vec: []float64{2, 3}},
-    {Vec: []float64{5, 4}},
-    {Vec: []float64{9, 6}},
-    {Vec: []float64{4, 7}},
-    {Vec: []float64{8, 1}},
-    {Vec: []float64{7, 2}},
+    &PointBase{Vec: []float64{2, 3}},
+    &PointBase{Vec: []float64{5, 4}},
+    &PointBase{Vec: []float64{9, 6}},
+    &PointBase{Vec: []float64{4, 7}},
+    &PointBase{Vec: []float64{8, 1}},
+    &PointBase{Vec: []float64{7, 2}},
 }
 ```
 
@@ -32,7 +32,7 @@ tree := buildKDTree(points, 0)
 To find the k nearest neighbors to a target point:
 
 ```go
-target := Point{Vec: []float64{9, 2}}
+target := &PointBase{Vec: []float64{9, 2}}
 neighbors := tree.kNearestNeighbors(target, 3)
 ```
 
