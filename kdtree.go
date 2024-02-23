@@ -5,7 +5,35 @@ import (
 	"sort"
 )
 
-type Point struct {
+type Point interface {
+	Vector() []float64
+	Dim() int
+	GetValue(i int) float64
+	Distance(other Point) float64
+}
+
+func (p *PointBase) Vector() []float64 {
+	return p.Vec
+}
+
+func (p *PointBase) Dim() int {
+	return len(p.Vec)
+}
+
+func (p *PointBase) GetValue(dim int) float64 {
+	return p.Vec[dim]
+}
+
+func (p *PointBase) Distance(other Point) float64 {
+	var ret float64
+	for i := 0; i < p.Dim(); i++ {
+		tmp := p.GetValue(i) - other.GetValue(i)
+		ret += tmp * tmp
+	}
+	return math.Sqrt(ret)
+}
+
+type PointBase struct {
 	Vec []float64
 }
 
@@ -24,7 +52,7 @@ func BuildKDTree(points []Point, depth int) *Node {
 	}
 
 	sort.Slice(points, func(i, j int) bool {
-		return points[i].Vec[depth%len(points[i].Vec)] < points[j].Vec[depth%len(points[j].Vec)]
+		return points[i].GetValue(depth%len(points[i].Vector())) < points[j].GetValue(depth%len(points[j].Vector()))
 	})
 
 	median := n / 2
@@ -33,14 +61,14 @@ func BuildKDTree(points []Point, depth int) *Node {
 		Point: points[median],
 		Left:  BuildKDTree(points[:median], depth+1),
 		Right: BuildKDTree(points[median+1:], depth+1),
-		Axis:  depth % len(points[0].Vec),
+		Axis:  depth % len(points[0].Vector()),
 	}
 }
 
 func distance(a, b Point) float64 {
 	sum := 0.0
-	for i := range a.Vec {
-		diff := a.Vec[i] - b.Vec[i]
+	for i := range a.Dim() {
+		diff := a.GetValue(i) - b.GetValue(i)
 		sum += diff * diff
 	}
 	return math.Sqrt(sum)
@@ -68,11 +96,11 @@ func (node *Node) kNearestNeighbors(target Point, k int) []Point {
 			})
 		}
 
-		if node.Left != nil && (len(neighbors) < k || math.Abs(target.Vec[node.Axis]-node.Point.Vec[node.Axis]) < distance(target, neighbors[k-1])) {
+		if node.Left != nil && (len(neighbors) < k || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) < distance(target, neighbors[k-1])) {
 			search(node.Left)
 		}
 
-		if node.Right != nil && (len(neighbors) < k || math.Abs(target.Vec[node.Axis]-node.Point.Vec[node.Axis]) < distance(target, neighbors[k-1])) {
+		if node.Right != nil && (len(neighbors) < k || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) < distance(target, neighbors[k-1])) {
 			search(node.Right)
 		}
 	}
@@ -99,7 +127,7 @@ func (node *Node) neighborsWithinRadius(target Point, radius float64) []Point {
 		}
 
 		var near, far *Node
-		if target.Vec[node.Axis] < node.Point.Vec[node.Axis] {
+		if target.GetValue(node.Axis) < node.Point.GetValue(node.Axis) {
 			near = node.Left
 			far = node.Right
 		} else {
@@ -109,7 +137,7 @@ func (node *Node) neighborsWithinRadius(target Point, radius float64) []Point {
 
 		search(near)
 
-		if d <= radius || math.Abs(target.Vec[node.Axis]-node.Point.Vec[node.Axis]) <= radius {
+		if d <= radius || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) <= radius {
 			search(far)
 		}
 	}
