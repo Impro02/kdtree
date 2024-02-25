@@ -30,7 +30,7 @@ func TestKNearestNeighbors(t *testing.T) {
 	target := &PointBase{Vec: []float64{3, 3}}
 	k := 5
 
-	neighbors := kdTree.kNearestNeighbors(target, k)
+	neighbors := kdTree.KNearestNeighbors(target, k)
 
 	expectedPoint := []Point{
 		&PointBase{Vec: []float64{3, 3}},
@@ -67,7 +67,7 @@ func TestNeighborsWithinRadius(t *testing.T) {
 	target := &PointBase{Vec: []float64{3, 3}}
 	k := 5.0
 
-	neighbors := kdTree.neighborsWithinRadius(target, k)
+	neighbors := kdTree.NeighborsWithinRadius(target, k)
 
 	expectedPoint := []Point{
 		&PointBase{Vec: []float64{3, 3}},
