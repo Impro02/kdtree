@@ -74,7 +74,7 @@ func distance(a, b Point) float64 {
 	return math.Sqrt(sum)
 }
 
-func (node *Node) kNearestNeighbors(target Point, k int) []Point {
+func (node *Node) KNearestNeighbors(target Point, k int) []Point {
 	neighbors := make([]Point, 0, k)
 
 	var search func(node *Node)
@@ -110,7 +110,7 @@ func (node *Node) kNearestNeighbors(target Point, k int) []Point {
 	return neighbors
 }
 
-func (node *Node) neighborsWithinRadius(target Point, radius float64) []Point {
+func (node *Node) NeighborsWithinRadius(target Point, radius float64) []Point {
 	neighbors := make([]Point, 0)
 
 	var search func(node *Node)
