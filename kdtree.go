@@ -50,7 +50,7 @@ func (p *PointBase) Distance(other Point) float64 {
 		tmp := p.GetValue(i) - other.GetValue(i)
 		ret += tmp * tmp
 	}
-	return math.Sqrt(ret)
+	return ret
 }
 
 type PointBase struct {
