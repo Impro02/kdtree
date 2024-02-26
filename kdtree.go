@@ -93,7 +93,7 @@ func (node *Node) flatten() []*Node {
 
 func worker(jobs <-chan Job, results chan<- Result) {
 	for job := range jobs {
-		d := distance(job.Target, job.Node.Point)
+		d := job.Target.Distance(job.Node.Point)
 		results <- Result{Point: job.Node.Point, Distance: d}
 	}
 }
@@ -111,12 +111,16 @@ func BuildKDTree(points []Point, depth int) *Node {
 		return nil
 	}
 
+	// Determine the splitting axis
 	axis := depth % len(points[0].Vector())
+
+	// Pre-sort the points along the splitting dimension
+	nthElement(points, axis)
+
+	// Find the median
 	median := n / 2
 
-	// Use a selection algorithm to find the median
-	nthElement(points, median, axis)
-
+	// Create a new node
 	node := &Node{
 		Point: points[median],
 		Axis:  axis,
@@ -126,11 +130,13 @@ func BuildKDTree(points []Point, depth int) *Node {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	// Build the left subtree in a new goroutine
 	go func() {
 		defer wg.Done()
 		node.Left = BuildKDTree(points[:median], depth+1)
 	}()
 
+	// Build the right subtree in a new goroutine
 	go func() {
 		defer wg.Done()
 		node.Right = BuildKDTree(points[median+1:], depth+1)
@@ -142,20 +148,10 @@ func BuildKDTree(points []Point, depth int) *Node {
 	return node
 }
 
-// nthElement rearranges the slice such that the element at the nth position is the one that would be in that position in a sorted sequence.
-func nthElement(points []Point, n, axis int) {
+func nthElement(points []Point, axis int) {
 	sort.Slice(points, func(i, j int) bool {
 		return points[i].GetValue(axis) < points[j].GetValue(axis)
 	})
-}
-
-func distance(a, b Point) float64 {
-	sum := 0.0
-	for i := range a.Dim() {
-		diff := a.GetValue(i) - b.GetValue(i)
-		sum += diff * diff
-	}
-	return math.Sqrt(sum)
 }
 
 func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point {
@@ -192,11 +188,8 @@ func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point
 		neighbors = append(neighbors, heap.Pop(h).(Result).Point)
 	}
 
-	// Reverse the slice because heap.Pop gives the largest first
-	for i := len(neighbors)/2 - 1; i >= 0; i-- {
-		opp := len(neighbors) - 1 - i
-		neighbors[i], neighbors[opp] = neighbors[opp], neighbors[i]
-	}
+	// Sort the neighbors from closest to farthest
+	neighbors = mergeSort(neighbors, target)
 
 	return neighbors
 }
@@ -233,6 +226,8 @@ func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers
 		neighbors = append(neighbors, rightNeighbors...)
 	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
 		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
+	} else {
+		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
 	}
 
 	// Sort the neighbors from closest to farthest
