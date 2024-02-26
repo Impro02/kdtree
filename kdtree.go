@@ -1,9 +1,28 @@
 package kdtree
 
 import (
+	"container/heap"
 	"math"
 	"sort"
 )
+
+type MaxHeap []Result
+
+func (h MaxHeap) Len() int           { return len(h) }
+func (h MaxHeap) Less(i, j int) bool { return h[i].Distance > h[j].Distance }
+func (h MaxHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *MaxHeap) Push(x interface{}) {
+	*h = append(*h, x.(Result))
+}
+
+func (h *MaxHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
 
 type Point interface {
 	Vector() []float64
@@ -44,6 +63,46 @@ type Node struct {
 	Axis  int
 }
 
+type Job struct {
+	Node   *Node
+	Target Point
+}
+
+type Result struct {
+	Point    Point
+	Distance float64
+}
+
+func (node *Node) flatten() []*Node {
+	if node == nil {
+		return nil
+	}
+
+	nodes := []*Node{node}
+
+	if node.Left != nil {
+		nodes = append(nodes, node.Left.flatten()...)
+	}
+	if node.Right != nil {
+		nodes = append(nodes, node.Right.flatten()...)
+	}
+
+	return nodes
+}
+
+func worker(jobs <-chan Job, results chan<- Result) {
+	for job := range jobs {
+		d := distance(job.Target, job.Node.Point)
+		results <- Result{Point: job.Node.Point, Distance: d}
+	}
+}
+
+func createWorkerPool(numWorkers int, jobs <-chan Job, results chan<- Result) {
+	for i := 0; i < numWorkers; i++ {
+		go worker(jobs, results)
+	}
+}
+
 func BuildKDTree(points []Point, depth int) *Node {
 	n := len(points)
 
@@ -74,75 +133,69 @@ func distance(a, b Point) float64 {
 	return math.Sqrt(sum)
 }
 
-func (node *Node) KNearestNeighbors(target Point, k int) []Point {
-	neighbors := make([]Point, 0, k)
+func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point {
+	nodes := node.flatten() // Flatten the tree into a slice of nodes
+	jobs := make(chan Job, len(nodes))
+	results := make(chan Result, len(nodes))
 
-	var search func(node *Node)
+	createWorkerPool(numWorkers, jobs, results)
 
-	search = func(node *Node) {
-		if node == nil {
-			return
-		}
+	for _, node := range nodes {
+		jobs <- Job{Node: node, Target: target}
+	}
+	close(jobs)
 
-		d := distance(target, node.Point)
+	h := &MaxHeap{}
+	heap.Init(h)
 
-		if len(neighbors) < k || d < distance(target, neighbors[k-1]) {
-			if len(neighbors) == k {
-				neighbors = neighbors[:k-1] // Remove the farthest neighbor
-			}
-			neighbors = append(neighbors, node.Point)
-			sort.Slice(neighbors, func(i, j int) bool {
-				return distance(target, neighbors[i]) < distance(target, neighbors[j])
-			})
-		}
-
-		if node.Left != nil && (len(neighbors) < k || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) < distance(target, neighbors[k-1])) {
-			search(node.Left)
-		}
-
-		if node.Right != nil && (len(neighbors) < k || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) < distance(target, neighbors[k-1])) {
-			search(node.Right)
+	for i := 0; i < len(nodes); i++ {
+		result := <-results
+		if h.Len() < k {
+			heap.Push(h, result)
+		} else if top := (*h)[0]; result.Distance < top.Distance {
+			heap.Pop(h)
+			heap.Push(h, result)
 		}
 	}
 
-	search(node)
+	var neighbors []Point
+	for h.Len() > 0 {
+		neighbors = append(neighbors, heap.Pop(h).(Result).Point)
+	}
+
+	// Reverse the slice because heap.Pop gives the largest first
+	for i := len(neighbors)/2 - 1; i >= 0; i-- {
+		opp := len(neighbors) - 1 - i
+		neighbors[i], neighbors[opp] = neighbors[opp], neighbors[i]
+	}
 
 	return neighbors
 }
 
-func (node *Node) NeighborsWithinRadius(target Point, radius float64) []Point {
-	neighbors := make([]Point, 0)
+func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers int) []Point {
+	nodes := node.flatten() // Flatten the tree into a slice of nodes
+	jobs := make(chan Job, len(nodes))
+	results := make(chan Result, len(nodes))
 
-	var search func(node *Node)
+	createWorkerPool(numWorkers, jobs, results)
 
-	search = func(node *Node) {
-		if node == nil {
-			return
-		}
+	for _, node := range nodes {
+		jobs <- Job{Node: node, Target: target}
+	}
+	close(jobs)
 
-		d := distance(target, node.Point)
-
-		if d <= radius {
-			neighbors = append(neighbors, node.Point)
-		}
-
-		var near, far *Node
-		if target.GetValue(node.Axis) < node.Point.GetValue(node.Axis) {
-			near = node.Left
-			far = node.Right
-		} else {
-			near = node.Right
-			far = node.Left
-		}
-
-		search(near)
-
-		if d <= radius || math.Abs(target.GetValue(node.Axis)-node.Point.GetValue(node.Axis)) <= radius {
-			search(far)
-		}
+	var out []Result
+	for i := 0; i < len(nodes); i++ {
+		out = append(out, <-results)
 	}
 
-	search(node)
+	// Filter the results by distance and return the neighbors within the radius
+	var neighbors []Point
+	for _, result := range out {
+		if result.Distance <= radius {
+			neighbors = append(neighbors, result.Point)
+		}
+	}
 
 	// Sort the neighbors from closest to farthest
 	sort.Slice(neighbors, func(i, j int) bool {
