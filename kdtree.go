@@ -134,6 +134,10 @@ func distance(a, b Point) float64 {
 }
 
 func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point {
+	if node == nil {
+		return nil
+	}
+
 	nodes := node.flatten() // Flatten the tree into a slice of nodes
 	jobs := make(chan Job, len(nodes))
 	results := make(chan Result, len(nodes))
