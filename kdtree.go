@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"math"
 	"sort"
+	"sync"
 )
 
 type MaxHeap []Result
@@ -110,18 +111,42 @@ func BuildKDTree(points []Point, depth int) *Node {
 		return nil
 	}
 
-	sort.Slice(points, func(i, j int) bool {
-		return points[i].GetValue(depth%len(points[i].Vector())) < points[j].GetValue(depth%len(points[j].Vector()))
-	})
-
+	axis := depth % len(points[0].Vector())
 	median := n / 2
 
-	return &Node{
+	// Use a selection algorithm to find the median
+	nthElement(points, median, axis)
+
+	node := &Node{
 		Point: points[median],
-		Left:  BuildKDTree(points[:median], depth+1),
-		Right: BuildKDTree(points[median+1:], depth+1),
-		Axis:  depth % len(points[0].Vector()),
+		Axis:  axis,
 	}
+
+	// Use a WaitGroup to wait for the goroutines to finish
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		node.Left = BuildKDTree(points[:median], depth+1)
+	}()
+
+	go func() {
+		defer wg.Done()
+		node.Right = BuildKDTree(points[median+1:], depth+1)
+	}()
+
+	// Wait for the goroutines to finish
+	wg.Wait()
+
+	return node
+}
+
+// nthElement rearranges the slice such that the element at the nth position is the one that would be in that position in a sorted sequence.
+func nthElement(points []Point, n, axis int) {
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].GetValue(axis) < points[j].GetValue(axis)
+	})
 }
 
 func distance(a, b Point) float64 {
@@ -188,18 +213,78 @@ func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers
 
 	dim := node.Axis
 	if math.Abs(target.GetValue(dim)-node.Point.GetValue(dim)) <= radius {
-		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
-		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
+		var leftNeighbors, rightNeighbors []Point
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			leftNeighbors = node.Left.NeighborsWithinRadius(target, radius, numWorkers)
+		}()
+
+		go func() {
+			defer wg.Done()
+			rightNeighbors = node.Right.NeighborsWithinRadius(target, radius, numWorkers)
+		}()
+
+		wg.Wait()
+
+		neighbors = append(neighbors, leftNeighbors...)
+		neighbors = append(neighbors, rightNeighbors...)
 	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
 		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
-	} else {
-		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
 	}
 
 	// Sort the neighbors from closest to farthest
-	sort.Slice(neighbors, func(i, j int) bool {
-		return target.Distance(neighbors[i]) < target.Distance(neighbors[j])
-	})
+	neighbors = mergeSort(neighbors, target)
 
 	return neighbors
+}
+
+func mergeSort(arr []Point, target Point) []Point {
+	if len(arr) <= 1 {
+		return arr
+	}
+
+	middle := len(arr) / 2
+
+	var left, right []Point
+	done := make(chan bool)
+
+	go func() {
+		left = mergeSort(arr[:middle], target)
+		done <- true
+	}()
+
+	right = mergeSort(arr[middle:], target)
+	<-done
+
+	return merge(left, right, target)
+}
+
+func merge(left, right []Point, target Point) (result []Point) {
+	result = make([]Point, len(left)+len(right))
+
+	i := 0
+	for len(left) > 0 && len(right) > 0 {
+		if target.Distance(left[0]) <= target.Distance(right[0]) {
+			result[i] = left[0]
+			left = left[1:]
+		} else {
+			result[i] = right[0]
+			right = right[1:]
+		}
+		i++
+	}
+
+	for j := 0; j < len(left); j++ {
+		result[i] = left[j]
+		i++
+	}
+	for j := 0; j < len(right); j++ {
+		result[i] = right[j]
+		i++
+	}
+
+	return
 }
