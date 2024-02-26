@@ -1,7 +1,9 @@
 package kdtree
 
 import (
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -79,4 +81,28 @@ func TestNeighborsWithinRadius(t *testing.T) {
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
+}
+
+func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
+	// Generate a large dataset
+	points := make([]Point, 1000000)
+	for i := range points {
+		points[i] = &PointBase{Vec: []float64{rand.Float64() * 1000, rand.Float64() * 1000}}
+	}
+
+	// Create a KDTree with the points
+	kdTree := BuildKDTree(points, 0)
+
+	// Test NeighborsWithinRadius
+	center := &PointBase{Vec: []float64{500, 500}}
+	radius := 100.0
+	start := time.Now()
+	neighbors := kdTree.NeighborsWithinRadius(center, radius, 2)
+	elapsed := time.Since(start)
+	t.Logf("Found %d neighbors within radius %.2f of point %.2f in %s", len(neighbors), radius, center.Vector(), elapsed)
+
+	// Add assertions as needed, for example:
+	if len(neighbors) == 0 {
+		t.Errorf("Expected to find neighbors, but found none")
+	}
 }
