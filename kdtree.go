@@ -134,6 +134,10 @@ func distance(a, b Point) float64 {
 }
 
 func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point {
+	if node == nil {
+		return nil
+	}
+
 	nodes := node.flatten() // Flatten the tree into a slice of nodes
 	jobs := make(chan Job, len(nodes))
 	results := make(chan Result, len(nodes))
@@ -173,33 +177,28 @@ func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point
 }
 
 func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers int) []Point {
-	nodes := node.flatten() // Flatten the tree into a slice of nodes
-	jobs := make(chan Job, len(nodes))
-	results := make(chan Result, len(nodes))
-
-	createWorkerPool(numWorkers, jobs, results)
-
-	for _, node := range nodes {
-		jobs <- Job{Node: node, Target: target}
-	}
-	close(jobs)
-
-	var out []Result
-	for i := 0; i < len(nodes); i++ {
-		out = append(out, <-results)
+	if node == nil {
+		return nil
 	}
 
-	// Filter the results by distance and return the neighbors within the radius
 	var neighbors []Point
-	for _, result := range out {
-		if result.Distance <= radius {
-			neighbors = append(neighbors, result.Point)
-		}
+	if node.Point.Distance(target) <= radius {
+		neighbors = append(neighbors, node.Point)
+	}
+
+	dim := node.Axis
+	if math.Abs(target.GetValue(dim)-node.Point.GetValue(dim)) <= radius {
+		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
+		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
+	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
+		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
+	} else {
+		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
 	}
 
 	// Sort the neighbors from closest to farthest
 	sort.Slice(neighbors, func(i, j int) bool {
-		return distance(target, neighbors[i]) < distance(target, neighbors[j])
+		return target.Distance(neighbors[i]) < target.Distance(neighbors[j])
 	})
 
 	return neighbors
