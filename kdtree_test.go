@@ -44,6 +44,20 @@ func TestKNearestNeighbors(t *testing.T) {
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
+
+	target = &PointBase{Vec: []float64{42, 42}}
+
+	neighbors = kdTree.KNearestNeighbors(target, k, workers)
+
+	expectedPoint = []Point{
+		&PointBase{Vec: []float64{42, 42}},
+		&PointBase{Vec: []float64{41, 41}},
+		&PointBase{Vec: []float64{43, 43}},
+		&PointBase{Vec: []float64{40, 40}},
+		&PointBase{Vec: []float64{22, 22}},
+	}
+
+	assert.Equal(t, expectedPoint, neighbors)
 }
 
 func TestNeighborsWithinRadius(t *testing.T) {
@@ -78,6 +92,19 @@ func TestNeighborsWithinRadius(t *testing.T) {
 		&PointBase{Vec: []float64{2, 2}},
 		&PointBase{Vec: []float64{1, 1}},
 		&PointBase{Vec: []float64{6, 6}},
+	}
+
+	assert.Equal(t, expectedPoint, neighbors)
+
+	target = &PointBase{Vec: []float64{42, 42}}
+
+	neighbors = kdTree.NeighborsWithinRadius(target, k, workers)
+
+	expectedPoint = []Point{
+		&PointBase{Vec: []float64{42, 42}},
+		&PointBase{Vec: []float64{41, 41}},
+		&PointBase{Vec: []float64{43, 43}},
+		&PointBase{Vec: []float64{40, 40}},
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
