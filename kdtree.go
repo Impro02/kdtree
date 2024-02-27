@@ -178,18 +178,15 @@ func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point
 		if h.Len() < k {
 			heap.Push(h, result)
 		} else if top := (*h)[0]; result.Distance < top.Distance {
-			heap.Pop(h)
-			heap.Push(h, result)
+			(*h)[0] = result
+			heap.Fix(h, 0)
 		}
 	}
 
-	var neighbors []Point
+	neighbors := make([]Point, 0, k)
 	for h.Len() > 0 {
 		neighbors = append(neighbors, heap.Pop(h).(Result).Point)
 	}
-
-	// Sort the neighbors from closest to farthest
-	neighbors = mergeSort(neighbors, target)
 
 	return neighbors
 }
@@ -229,9 +226,6 @@ func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers
 	} else {
 		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
 	}
-
-	// Sort the neighbors from closest to farthest
-	neighbors = mergeSort(neighbors, target)
 
 	return neighbors
 }
