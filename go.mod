@@ -1,4 +1,4 @@
-module github.com/impro02/kdtree
+module github.com/Impro02/kdtree
 
 go 1.22.0
 
