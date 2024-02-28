@@ -1,6 +1,7 @@
 package kdtree
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 
@@ -79,7 +80,7 @@ func TestNeighborsWithinRadius(t *testing.T) {
 	kdTree := BuildKDTree(points, 0, 3)
 
 	target := &PointBase{Vec: []float64{3, 3}}
-	k := 5.0
+	k := math.Pow(5.0, 2)
 
 	neighbors := kdTree.SearchInRadius(target, k)
 
@@ -184,7 +185,7 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 	kdTree := BuildKDTree(points, 0, 30)
 
 	target := &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k := 0.001
+	k := math.Pow(0.001, 2)
 
 	neighbors := kdTree.SearchInRadius(target, k)
 
@@ -204,7 +205,7 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 	assert.Equal(t, expectedPoint, neighbors)
 
 	target = &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k = 0.005
+	k = math.Pow(0.005, 2)
 
 	neighbors = kdTree.SearchInRadius(target, k)
 

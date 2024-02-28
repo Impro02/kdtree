@@ -193,10 +193,13 @@ func (node *Node) SearchInRadius(target Point, radius float64) []Point {
 		return nil
 	}
 
+	sqrtRadius := math.Sqrt(radius)
+
 	min, max := PointBase{Vec: []float64{}}, PointBase{Vec: []float64{}}
 	for _, value := range target.Vector() {
-		min.Vec = append(min.Vec, value-radius)
-		max.Vec = append(max.Vec, value+radius)
+
+		min.Vec = append(min.Vec, value-sqrtRadius)
+		max.Vec = append(max.Vec, value+sqrtRadius)
 	}
 
 	return node.Range(&min, &max)
