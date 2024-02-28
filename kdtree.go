@@ -7,24 +7,6 @@ import (
 	"sync"
 )
 
-type MaxHeap []Result
-
-func (h MaxHeap) Len() int           { return len(h) }
-func (h MaxHeap) Less(i, j int) bool { return h[i].Distance > h[j].Distance }
-func (h MaxHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-
-func (h *MaxHeap) Push(x interface{}) {
-	*h = append(*h, x.(Result))
-}
-
-func (h *MaxHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
-
 type Point interface {
 	Vector() []float64
 	Dim() int
@@ -58,15 +40,11 @@ type PointBase struct {
 }
 
 type Node struct {
-	Point Point
-	Left  *Node
-	Right *Node
-	Axis  int
-}
-
-type Job struct {
-	Node   *Node
-	Target Point
+	Point  Point
+	Points []Point
+	Left   *Node
+	Right  *Node
+	Axis   int
 }
 
 type Result struct {
@@ -74,37 +52,25 @@ type Result struct {
 	Distance float64
 }
 
-func (node *Node) flatten() []*Node {
-	if node == nil {
-		return nil
-	}
+type MaxHeap []Result
 
-	nodes := []*Node{node}
+func (h MaxHeap) Len() int           { return len(h) }
+func (h MaxHeap) Less(i, j int) bool { return h[i].Distance > h[j].Distance }
+func (h MaxHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
-	if node.Left != nil {
-		nodes = append(nodes, node.Left.flatten()...)
-	}
-	if node.Right != nil {
-		nodes = append(nodes, node.Right.flatten()...)
-	}
-
-	return nodes
+func (h *MaxHeap) Push(x interface{}) {
+	*h = append(*h, x.(Result))
 }
 
-func worker(jobs <-chan Job, results chan<- Result) {
-	for job := range jobs {
-		d := job.Target.Distance(job.Node.Point)
-		results <- Result{Point: job.Node.Point, Distance: d}
-	}
+func (h *MaxHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
 }
 
-func createWorkerPool(numWorkers int, jobs <-chan Job, results chan<- Result) {
-	for i := 0; i < numWorkers; i++ {
-		go worker(jobs, results)
-	}
-}
-
-func BuildKDTree(points []Point, depth int) *Node {
+func BuildKDTree(points []Point, depth int, leafSize int) *Node {
 	n := len(points)
 
 	if n == 0 {
@@ -120,6 +86,14 @@ func BuildKDTree(points []Point, depth int) *Node {
 	// Find the median
 	median := n / 2
 
+	if n <= leafSize {
+		return &Node{
+			Point:  points[median],
+			Points: points,
+			Axis:   axis,
+		}
+	}
+
 	// Create a new node
 	node := &Node{
 		Point: points[median],
@@ -133,13 +107,13 @@ func BuildKDTree(points []Point, depth int) *Node {
 	// Build the left subtree in a new goroutine
 	go func() {
 		defer wg.Done()
-		node.Left = BuildKDTree(points[:median], depth+1)
+		node.Left = BuildKDTree(points[:median], depth+1, leafSize)
 	}()
 
 	// Build the right subtree in a new goroutine
 	go func() {
 		defer wg.Done()
-		node.Right = BuildKDTree(points[median+1:], depth+1)
+		node.Right = BuildKDTree(points[median+1:], depth+1, leafSize)
 	}()
 
 	// Wait for the goroutines to finish
@@ -154,35 +128,58 @@ func nthElement(points []Point, axis int) {
 	})
 }
 
-func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point {
-	if node == nil {
-		return nil
-	}
-
-	nodes := node.flatten() // Flatten the tree into a slice of nodes
-	jobs := make(chan Job, len(nodes))
-	results := make(chan Result, len(nodes))
-
-	createWorkerPool(numWorkers, jobs, results)
-
-	for _, node := range nodes {
-		jobs <- Job{Node: node, Target: target}
-	}
-	close(jobs)
-
+func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
+	// Create a max heap to store the k nearest neighbors
 	h := &MaxHeap{}
 	heap.Init(h)
 
-	for i := 0; i < len(nodes); i++ {
-		result := <-results
-		if h.Len() < k {
-			heap.Push(h, result)
-		} else if top := (*h)[0]; result.Distance < top.Distance {
-			(*h)[0] = result
-			heap.Fix(h, 0)
+	// Create a function that will be used to search the KD-Tree
+	var search func(node *Node)
+	search = func(node *Node) {
+		if node == nil {
+			return
+		}
+
+		// If the node is a leaf node
+		if len(node.Points) > 0 {
+			for _, point := range node.Points {
+				distance := point.Distance(target)
+				if h.Len() < k {
+					heap.Push(h, Result{Point: point, Distance: distance})
+				} else if top := (*h)[0]; distance < top.Distance {
+					(*h)[0] = Result{Point: point, Distance: distance}
+					heap.Fix(h, 0)
+				}
+			}
+		} else {
+			// If the node is not a leaf node
+			distance := node.Point.Distance(target)
+
+			if h.Len() < k {
+				heap.Push(h, Result{Point: node.Point, Distance: distance})
+			} else if top := (*h)[0]; distance < top.Distance {
+				(*h)[0] = Result{Point: node.Point, Distance: distance}
+				heap.Fix(h, 0)
+			}
+
+			diff := target.GetValue(node.Axis) - node.Point.GetValue(node.Axis)
+
+			closeBranch, farBranch := node.Left, node.Right
+			if diff > 0 {
+				closeBranch, farBranch = node.Right, node.Left
+			}
+
+			search(closeBranch)
+			if h.Len() < k || math.Abs(distance) <= (*h)[0].Distance {
+				search(farBranch)
+			}
 		}
 	}
 
+	// Start the search
+	search(node)
+
+	// Extract the k nearest neighbors from the heap
 	neighbors := make([]Point, 0, k)
 	for h.Len() > 0 {
 		neighbors = append(neighbors, heap.Pop(h).(Result).Point)
@@ -191,41 +188,63 @@ func (node *Node) KNearestNeighbors(target Point, k int, numWorkers int) []Point
 	return neighbors
 }
 
-func (node *Node) NeighborsWithinRadius(target Point, radius float64, numWorkers int) []Point {
+func (node *Node) SearchInRadius(target Point, radius float64) []Point {
 	if node == nil {
 		return nil
 	}
 
-	var neighbors []Point
-	if node.Point.Distance(target) <= radius {
-		neighbors = append(neighbors, node.Point)
+	min, max := PointBase{Vec: []float64{}}, PointBase{Vec: []float64{}}
+	for _, value := range target.Vector() {
+		min.Vec = append(min.Vec, value-radius)
+		max.Vec = append(max.Vec, value+radius)
 	}
 
-	dim := node.Axis
-	if math.Abs(target.GetValue(dim)-node.Point.GetValue(dim)) <= radius {
-		var leftNeighbors, rightNeighbors []Point
-		var wg sync.WaitGroup
-		wg.Add(2)
+	return node.Range(&min, &max)
+}
 
-		go func() {
-			defer wg.Done()
-			leftNeighbors = node.Left.NeighborsWithinRadius(target, radius, numWorkers)
-		}()
+func (node *Node) Range(min, max Point) []Point {
+	if node == nil {
+		return nil
+	}
 
-		go func() {
-			defer wg.Done()
-			rightNeighbors = node.Right.NeighborsWithinRadius(target, radius, numWorkers)
-		}()
+	var pointsInRange []Point
 
-		wg.Wait()
-
-		neighbors = append(neighbors, leftNeighbors...)
-		neighbors = append(neighbors, rightNeighbors...)
-	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
-		neighbors = append(neighbors, node.Left.NeighborsWithinRadius(target, radius, numWorkers)...)
+	if len(node.Points) > 0 {
+		// This is a leaf node
+		for _, point := range node.Points {
+			inRange := true
+			for i := 0; i < point.Dim(); i++ {
+				if point.GetValue(i) < min.GetValue(i) || point.GetValue(i) > max.GetValue(i) {
+					inRange = false
+					break
+				}
+			}
+			if inRange {
+				pointsInRange = append(pointsInRange, point)
+			}
+		}
 	} else {
-		neighbors = append(neighbors, node.Right.NeighborsWithinRadius(target, radius, numWorkers)...)
+		// This is not a leaf node
+		inRange := true
+		for i := 0; i < node.Point.Dim(); i++ {
+			if node.Point.GetValue(i) < min.GetValue(i) || node.Point.GetValue(i) > max.GetValue(i) {
+				inRange = false
+				break
+			}
+		}
+
+		if inRange {
+			pointsInRange = append(pointsInRange, node.Point)
+		}
+
+		if node.Left != nil && min.GetValue(node.Axis) <= node.Point.GetValue(node.Axis) {
+			pointsInRange = append(pointsInRange, node.Left.Range(min, max)...)
+		}
+
+		if node.Right != nil && max.GetValue(node.Axis) >= node.Point.GetValue(node.Axis) {
+			pointsInRange = append(pointsInRange, node.Right.Range(min, max)...)
+		}
 	}
 
-	return neighbors
+	return pointsInRange
 }
