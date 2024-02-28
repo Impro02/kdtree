@@ -202,7 +202,17 @@ func (node *Node) SearchInRadius(target Point, radius float64) []Point {
 		max.Vec = append(max.Vec, value+sqrtRadius)
 	}
 
-	return node.Range(&min, &max)
+	pointsInRange := node.Range(&min, &max)
+
+	// Filter pointsInRange to keep only points within epsilon distance from target
+	filteredPoints := []Point{}
+	for _, point := range pointsInRange {
+		if target.Distance(point) < radius {
+			filteredPoints = append(filteredPoints, point)
+		}
+	}
+
+	return filteredPoints
 }
 
 func (node *Node) Range(min, max Point) []Point {

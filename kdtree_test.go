@@ -194,12 +194,10 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 		&PointBase{Vec: []float64{0.38549966558989135, 0.5415744489834114}},
 		&PointBase{Vec: []float64{0.3854901841318027, 0.541756239560265}},
 		&PointBase{Vec: []float64{0.38542887388874814, 0.5417771692037563}},
-		&PointBase{Vec: []float64{0.38660034292891066, 0.5418250079551988}},
 		&PointBase{Vec: []float64{0.3856857299481051, 0.5419476199994974}},
 		&PointBase{Vec: []float64{0.3853903741566792, 0.5419497221303512}},
 		&PointBase{Vec: []float64{0.38638387159772386, 0.5420008681262924}},
 		&PointBase{Vec: []float64{0.3852720872220887, 0.54208365384879}},
-		&PointBase{Vec: []float64{0.3864118669793454, 0.5423800070023911}},
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
@@ -211,18 +209,14 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 
 	expectedPoint = []Point{
 		&PointBase{Vec: []float64{0.750084660506549, 0.3945275932480578}},
-		&PointBase{Vec: []float64{0.7458695475861331, 0.3949201755051351}},
 		&PointBase{Vec: []float64{0.7497493291422486, 0.3950725887601213}},
 		&PointBase{Vec: []float64{0.7471632682870435, 0.3952894584674514}},
-		&PointBase{Vec: []float64{0.7524894413169845, 0.3954747506874607}},
 		&PointBase{Vec: []float64{0.751467324024117, 0.39559326843639386}},
-		&PointBase{Vec: []float64{0.7535931476482688, 0.39604109522691616}},
 		&PointBase{Vec: []float64{0.7441017049545757, 0.3994247485954816}},
 		&PointBase{Vec: []float64{0.7490513219372369, 0.39989061448023705}},
 		&PointBase{Vec: []float64{0.750271368071364, 0.40175926458750155}},
 		&PointBase{Vec: []float64{0.7477548717536625, 0.4024430684518462}},
 		&PointBase{Vec: []float64{0.7466782147046156, 0.40251297114855955}},
-		&PointBase{Vec: []float64{0.7448459886029956, 0.4034860547326891}},
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
