@@ -192,14 +192,13 @@ func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
 	return neighbors
 }
 
-func (node *Node) SearchInRadius(target Point, distance float64) []Point {
+func (node *Node) SearchRadius(target Point, radius float64) []Point {
 	var result []Point
-	distanceSquared := distance * distance
-	node.searchInRadius(target, distanceSquared, &result)
+	node.searchRadius(target, radius, &result)
 	return result
 }
 
-func (node *Node) searchInRadius(target Point, distanceSquared float64, result *[]Point) {
+func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 	if node == nil {
 		return
 	}
@@ -207,7 +206,7 @@ func (node *Node) searchInRadius(target Point, distanceSquared float64, result *
 	if len(node.Points) > 0 {
 		for _, point := range node.Points {
 			d := target.Distance(point)
-			if d <= distanceSquared {
+			if d <= radius {
 				*result = append(*result, point)
 			}
 		}
@@ -216,7 +215,7 @@ func (node *Node) searchInRadius(target Point, distanceSquared float64, result *
 		d := target.Distance(node.Point)
 
 		// If the current node's point is within the radius, add it to the result
-		if d <= distanceSquared {
+		if d <= radius {
 			*result = append(*result, node.Point)
 		}
 
@@ -225,66 +224,19 @@ func (node *Node) searchInRadius(target Point, distanceSquared float64, result *
 
 		// First, search the subtree on the same side as the target point
 		if planeDistance < 0 {
-			node.Left.searchInRadius(target, distanceSquared, result)
+			node.Left.searchRadius(target, radius, result)
 		} else {
-			node.Right.searchInRadius(target, distanceSquared, result)
+			node.Right.searchRadius(target, radius, result)
 		}
 
 		// If the splitting plane intersects the search sphere, also search the other subtree
-		if planeDistance*planeDistance <= distanceSquared {
+		if planeDistance*planeDistance <= radius {
 			if planeDistance < 0 {
-				node.Right.searchInRadius(target, distanceSquared, result)
+				node.Right.searchRadius(target, radius, result)
 			} else {
-				node.Left.searchInRadius(target, distanceSquared, result)
+				node.Left.searchRadius(target, radius, result)
 			}
 		}
 	}
 
-}
-
-func (node *Node) Range(min, max Point) []Point {
-	if node == nil {
-		return nil
-	}
-
-	var pointsInRange []Point
-
-	search := func(node *Node) bool {
-		inRange := true
-		for i := 0; i < node.Point.Dim(); i++ {
-			if node.Point.GetValue(i) < min.GetValue(i) || node.Point.GetValue(i) > max.GetValue(i) {
-				inRange = false
-				break
-			}
-		}
-
-		return inRange
-	}
-
-	if len(node.Points) > 0 {
-		// This is a leaf node
-		for _, point := range node.Points {
-			inRange := search(node)
-			if inRange {
-				pointsInRange = append(pointsInRange, point)
-			}
-		}
-	} else {
-		// This is not a leaf node
-		inRange := search(node)
-
-		if inRange {
-			pointsInRange = append(pointsInRange, node.Point)
-		}
-
-		if node.Left != nil && min.GetValue(node.Axis) <= node.Point.GetValue(node.Axis) {
-			pointsInRange = append(pointsInRange, node.Left.Range(min, max)...)
-		}
-
-		if node.Right != nil && max.GetValue(node.Axis) >= node.Point.GetValue(node.Axis) {
-			pointsInRange = append(pointsInRange, node.Right.Range(min, max)...)
-		}
-	}
-
-	return pointsInRange
 }
