@@ -29,9 +29,8 @@ func TestKNearestNeighbors(t *testing.T) {
 
 	target := &PointBase{Vec: []float64{3, 3}}
 	k := 5
-	workers := 2
 
-	neighbors := kdTree.KNN(target, k, workers)
+	neighbors := kdTree.KNN(target, k)
 
 	expectedPoint := []Point{
 		&PointBase{Vec: []float64{9, 9}},
@@ -45,7 +44,7 @@ func TestKNearestNeighbors(t *testing.T) {
 
 	target = &PointBase{Vec: []float64{42, 42}}
 
-	neighbors = kdTree.KNN(target, k, workers)
+	neighbors = kdTree.KNN(target, k)
 
 	expectedPoint = []Point{
 		&PointBase{Vec: []float64{22, 22}},
@@ -79,7 +78,7 @@ func TestNeighborsWithinRadius(t *testing.T) {
 	kdTree := BuildKDTree(points, 0, 3)
 
 	target := &PointBase{Vec: []float64{3, 3}}
-	k := 25.0
+	k := 5.0
 
 	neighbors := kdTree.SearchRadius(target, k)
 
@@ -131,9 +130,8 @@ func TestKNearestNeighborsLargeDataset(t *testing.T) {
 
 	target := &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
 	k := 5
-	workers := 2
 
-	neighbors := kdTree.KNN(target, k, workers)
+	neighbors := kdTree.KNN(target, k)
 
 	expectedPoint := []Point{
 		&PointBase{Vec: []float64{0.3856857299481051, 0.5419476199994974}},
@@ -147,7 +145,7 @@ func TestKNearestNeighborsLargeDataset(t *testing.T) {
 
 	target = &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
 
-	neighbors = kdTree.KNN(target, k, workers)
+	neighbors = kdTree.KNN(target, k)
 
 	expectedPoint = []Point{
 		&PointBase{Vec: []float64{0.7497493291422486, 0.3950725887601213}},
@@ -184,7 +182,7 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 	kdTree := BuildKDTree(points, 0, 30)
 
 	target := &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k := 0.00000025
+	k := 0.0005
 
 	neighbors := kdTree.SearchRadius(target, k)
 
@@ -198,7 +196,7 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 	assert.Equal(t, expectedPoint, neighbors)
 
 	target = &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k = 0.000025
+	k = 0.005
 
 	neighbors = kdTree.SearchRadius(target, k)
 
