@@ -12,6 +12,7 @@ type Point interface {
 	Dim() int
 	GetValue(i int) float64
 	Distance(other Point) float64
+	PlaneDistance(other Point, axis int) float64
 }
 
 func (p *PointBase) Vector() []float64 {
@@ -33,6 +34,10 @@ func (p *PointBase) Distance(other Point) float64 {
 		ret += tmp * tmp
 	}
 	return ret
+}
+
+func (p *PointBase) PlaneDistance(other Point, axis int) float64 {
+	return p.GetValue(axis) - other.GetValue(axis)
 }
 
 type PointBase struct {
@@ -162,10 +167,9 @@ func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
 				heap.Fix(h, 0)
 			}
 
-			diff := target.GetValue(node.Axis) - node.Point.GetValue(node.Axis)
-
+			// Determine which subtree to search first
 			closeBranch, farBranch := node.Left, node.Right
-			if diff > 0 {
+			if target.PlaneDistance(node.Point, node.Axis) > 0 {
 				closeBranch, farBranch = node.Right, node.Left
 			}
 
@@ -188,43 +192,54 @@ func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
 	return neighbors
 }
 
-func (node *Node) SearchInRadius(target Point, radius float64) []Point {
+func (node *Node) SearchInRadius(target Point, distance float64) []Point {
+	var result []Point
+	distanceSquared := distance * distance
+	node.searchInRadius(target, distanceSquared, &result)
+	return result
+}
+
+func (node *Node) searchInRadius(target Point, distanceSquared float64, result *[]Point) {
 	if node == nil {
-		return nil
+		return
 	}
 
-	var neighbors []Point
-	if node.Point.Distance(target) <= radius {
-		neighbors = append(neighbors, node.Point)
-	}
-
-	dim := node.Axis
-	if math.Abs(target.GetValue(dim)-node.Point.GetValue(dim)) <= radius {
-		var leftNeighbors, rightNeighbors []Point
-		var wg sync.WaitGroup
-		wg.Add(2)
-
-		go func() {
-			defer wg.Done()
-			leftNeighbors = node.Left.SearchInRadius(target, radius)
-		}()
-
-		go func() {
-			defer wg.Done()
-			rightNeighbors = node.Right.SearchInRadius(target, radius)
-		}()
-
-		wg.Wait()
-
-		neighbors = append(neighbors, leftNeighbors...)
-		neighbors = append(neighbors, rightNeighbors...)
-	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
-		neighbors = append(neighbors, node.Left.SearchInRadius(target, radius)...)
+	if len(node.Points) > 0 {
+		for _, point := range node.Points {
+			d := target.Distance(point)
+			if d <= distanceSquared {
+				*result = append(*result, point)
+			}
+		}
 	} else {
-		neighbors = append(neighbors, node.Right.SearchInRadius(target, radius)...)
+		// Calculate the distance from the target point to the current node's point
+		d := target.Distance(node.Point)
+
+		// If the current node's point is within the radius, add it to the result
+		if d <= distanceSquared {
+			*result = append(*result, node.Point)
+		}
+
+		// Calculate the distance from the target point to the current node's splitting plane
+		planeDistance := target.PlaneDistance(node.Point, node.Axis)
+
+		// First, search the subtree on the same side as the target point
+		if planeDistance < 0 {
+			node.Left.searchInRadius(target, distanceSquared, result)
+		} else {
+			node.Right.searchInRadius(target, distanceSquared, result)
+		}
+
+		// If the splitting plane intersects the search sphere, also search the other subtree
+		if planeDistance*planeDistance <= distanceSquared {
+			if planeDistance < 0 {
+				node.Right.searchInRadius(target, distanceSquared, result)
+			} else {
+				node.Left.searchInRadius(target, distanceSquared, result)
+			}
+		}
 	}
 
-	return neighbors
 }
 
 func (node *Node) Range(min, max Point) []Point {
