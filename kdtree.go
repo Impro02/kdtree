@@ -133,7 +133,7 @@ func nthElement(points []Point, axis int) {
 	})
 }
 
-func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
+func (node *Node) KNN(target Point, k int) []Point {
 	// Create a max heap to store the k nearest neighbors
 	h := &MaxHeap{}
 	heap.Init(h)
@@ -230,7 +230,7 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 		}
 
 		// If the splitting plane intersects the search sphere, also search the other subtree
-		if planeDistance*planeDistance <= radius {
+		if planeDistance <= radius {
 			if planeDistance < 0 {
 				node.Right.searchRadius(target, radius, result)
 			} else {
