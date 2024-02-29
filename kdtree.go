@@ -206,7 +206,7 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 	if len(node.Points) > 0 {
 		for _, point := range node.Points {
 			d := target.Distance(point)
-			if d <= radius {
+			if d <= radius*radius {
 				*result = append(*result, point)
 			}
 		}
@@ -215,7 +215,7 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 		d := target.Distance(node.Point)
 
 		// If the current node's point is within the radius, add it to the result
-		if d <= radius {
+		if d <= radius*radius {
 			*result = append(*result, node.Point)
 		}
 
@@ -230,7 +230,7 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 		}
 
 		// If the splitting plane intersects the search sphere, also search the other subtree
-		if planeDistance <= radius {
+		if planeDistance <= radius*radius {
 			if planeDistance < 0 {
 				node.Right.searchRadius(target, radius, result)
 			} else {
