@@ -230,7 +230,7 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 		}
 
 		// If the splitting plane intersects the search sphere, also search the other subtree
-		if planeDistance*planeDistance <= radius {
+		if planeDistance <= radius {
 			if planeDistance < 0 {
 				node.Right.searchRadius(target, radius, result)
 			} else {
