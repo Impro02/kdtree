@@ -133,7 +133,7 @@ func nthElement(points []Point, axis int) {
 	})
 }
 
-func (node *Node) KNN(target Point, k int, numWorkers int) []Point {
+func (node *Node) KNN(target Point, k int) []Point {
 	// Create a max heap to store the k nearest neighbors
 	h := &MaxHeap{}
 	heap.Init(h)
