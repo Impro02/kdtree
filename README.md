@@ -29,19 +29,28 @@ Then, build the KD-Tree:
 tree := buildKDTree(points, 0)
 ```
 
-To find the k nearest neighbors to a target point:
+## K Nearest Neighbors (KNN)
+
+The `KNN` function can be used to find the k nearest neighbors to a given target point. Here's an example of how to use it:
+
 
 ```go
 target := &PointBase{Vec: []float64{9, 2}}
-neighbors := tree.kNearestNeighbors(target, 3)
+k := 5
+neighbors := tree.KNN(target, k)
 ```
 
-To find all neighbors within a given radius of a target point:
+In this example, target is the point for which we want to find the nearest neighbors, k is the number of neighbors we want to find.
+
+## Search Radius
+The `SearchRadius` function can be used to find all neighbors within a given radius of a target point. Here's an example of how to use it:
 
 ```go
+target := &PointBase{Vec: []float64{9, 2}}
 radius := 5.0
-neighbors := tree.neighborsWithinRadius(target, radius)
+neighbors := tree.SearchRadius(target, radius)
 ```
 
-Note
-This implementation of a KD-Tree uses the Euclidean distance to measure the distance between points. The points are represented as slices of float64 values, allowing for points in n-dimensional space.
+In this example, target is the point for which we want to find the neighbors, and radius is the distance within which we want to find neighbors.
+
+Note: This implementation of a KD-Tree uses the Euclidean distance to measure the distance between points. The points are represented as slices of float64 values, allowing for points in n-dimensional space.
