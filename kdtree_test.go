@@ -185,42 +185,83 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 	kdTree := BuildKDTree(points, 0, 30)
 
 	target := &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k := math.Pow(0.001, 2)
+	k := math.Pow(0.01, 2)
 
 	neighbors := kdTree.SearchInRadius(target, k)
 
 	expectedPoint := []Point{
-		&PointBase{Vec: []float64{0.38564315658887993, 0.5414216231963146}},
-		&PointBase{Vec: []float64{0.38549966558989135, 0.5415744489834114}},
-		&PointBase{Vec: []float64{0.3854901841318027, 0.541756239560265}},
-		&PointBase{Vec: []float64{0.38542887388874814, 0.5417771692037563}},
-		&PointBase{Vec: []float64{0.3856857299481051, 0.5419476199994974}},
-		&PointBase{Vec: []float64{0.3853903741566792, 0.5419497221303512}},
-		&PointBase{Vec: []float64{0.38638387159772386, 0.5420008681262924}},
-		&PointBase{Vec: []float64{0.3852720872220887, 0.54208365384879}},
+		&PointBase{Vec: []float64{0.392960974800685, 0.536432608498107}},
+		&PointBase{Vec: []float64{0.39241808288121904, 0.5377496903891544}},
+		&PointBase{Vec: []float64{0.38748211988665315, 0.5504550069062193}},
+		&PointBase{Vec: []float64{0.3833792232833349, 0.5451329536032484}},
+		&PointBase{Vec: []float64{0.38475451369513863, 0.5382946597980961}},
+		&PointBase{Vec: []float64{0.3868472583484004, 0.541834563068953}},
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
 
 	target = &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
-	k = math.Pow(0.005, 2)
+	k = math.Pow(0.05, 2)
 
 	neighbors = kdTree.SearchInRadius(target, k)
 
 	expectedPoint = []Point{
-		&PointBase{Vec: []float64{0.750084660506549, 0.3945275932480578}},
-		&PointBase{Vec: []float64{0.7497493291422486, 0.3950725887601213}},
-		&PointBase{Vec: []float64{0.7471632682870435, 0.3952894584674514}},
-		&PointBase{Vec: []float64{0.751467324024117, 0.39559326843639386}},
-		&PointBase{Vec: []float64{0.7441017049545757, 0.3994247485954816}},
-		&PointBase{Vec: []float64{0.7490513219372369, 0.39989061448023705}},
-		&PointBase{Vec: []float64{0.750271368071364, 0.40175926458750155}},
-		&PointBase{Vec: []float64{0.7477548717536625, 0.4024430684518462}},
-		&PointBase{Vec: []float64{0.7466782147046156, 0.40251297114855955}},
+		&PointBase{Vec: []float64{0.7181340235136999, 0.38492226068056823}},
+		&PointBase{Vec: []float64{0.7612470947123487, 0.3830185500639749}},
+		&PointBase{Vec: []float64{0.7484143492027854, 0.3925531045856976}},
+		&PointBase{Vec: []float64{0.7389276345832828, 0.3949846647617419}},
+		&PointBase{Vec: []float64{0.7605379368859989, 0.3972481402217807}},
 	}
 
 	assert.Equal(t, expectedPoint, neighbors)
 }
+
+/*
+func TestNeighborsInRangeLargeDataSet(t *testing.T) {
+	// Seed the random number generator with a constant value.
+	r := rand.New(rand.NewSource(42))
+
+	// Define the centroids.
+	centroids := []Point{
+		&PointBase{Vec: []float64{0.1, 0.1}},
+		&PointBase{Vec: []float64{0.1, 0.9}},
+		&PointBase{Vec: []float64{0.5, 0.5}},
+		&PointBase{Vec: []float64{0.9, 0.1}},
+		&PointBase{Vec: []float64{0.9, 0.9}},
+	}
+
+	points := []Point{}
+	for i := 0; i < 1000000; i++ {
+		centroid := centroids[r.Intn(len(centroids))]
+		x := centroid.GetValue(0) + r.NormFloat64()*0.1
+		y := centroid.GetValue(1) + r.NormFloat64()*0.1
+		points = append(points, &PointBase{Vec: []float64{x, y}})
+	}
+
+	kdTree := BuildKDTree(points, 0, 30)
+
+	target := &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
+	k := 0.002
+
+	min, max := PointBase{Vec: []float64{}}, PointBase{Vec: []float64{}}
+	for _, value := range target.Vector() {
+		min.Vec = append(min.Vec, value-k)
+		max.Vec = append(max.Vec, value+k)
+	}
+
+	neighbors := kdTree.Range(&min, &max)
+
+	expectedPoint := []Point{
+		&PointBase{Vec: []float64{0.7181340235136999, 0.38492226068056823}},
+		&PointBase{Vec: []float64{0.7612470947123487, 0.3830185500639749}},
+		&PointBase{Vec: []float64{0.7484143492027854, 0.3925531045856976}},
+		&PointBase{Vec: []float64{0.7389276345832828, 0.3949846647617419}},
+		&PointBase{Vec: []float64{0.7605379368859989, 0.3972481402217807}},
+	}
+
+	assert.Equal(t, expectedPoint, neighbors)
+}
+*/
 
 func BenchmarkNeighborsWithinRadius(b *testing.B) {
 	// Seed the random number generator with a constant value.

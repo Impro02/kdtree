@@ -193,26 +193,38 @@ func (node *Node) SearchInRadius(target Point, radius float64) []Point {
 		return nil
 	}
 
-	sqrtRadius := math.Sqrt(radius)
-
-	min, max := PointBase{Vec: []float64{}}, PointBase{Vec: []float64{}}
-	for _, value := range target.Vector() {
-
-		min.Vec = append(min.Vec, value-sqrtRadius)
-		max.Vec = append(max.Vec, value+sqrtRadius)
+	var neighbors []Point
+	if node.Point.Distance(target) <= radius {
+		neighbors = append(neighbors, node.Point)
 	}
 
-	pointsInRange := node.Range(&min, &max)
+	dim := node.Axis
+	if math.Abs(target.GetValue(dim)-node.Point.GetValue(dim)) <= radius {
+		var leftNeighbors, rightNeighbors []Point
+		var wg sync.WaitGroup
+		wg.Add(2)
 
-	// Filter pointsInRange to keep only points within epsilon distance from target
-	filteredPoints := []Point{}
-	for _, point := range pointsInRange {
-		if target.Distance(point) < radius {
-			filteredPoints = append(filteredPoints, point)
-		}
+		go func() {
+			defer wg.Done()
+			leftNeighbors = node.Left.SearchInRadius(target, radius)
+		}()
+
+		go func() {
+			defer wg.Done()
+			rightNeighbors = node.Right.SearchInRadius(target, radius)
+		}()
+
+		wg.Wait()
+
+		neighbors = append(neighbors, leftNeighbors...)
+		neighbors = append(neighbors, rightNeighbors...)
+	} else if target.GetValue(dim) < node.Point.GetValue(dim) {
+		neighbors = append(neighbors, node.Left.SearchInRadius(target, radius)...)
+	} else {
+		neighbors = append(neighbors, node.Right.SearchInRadius(target, radius)...)
 	}
 
-	return filteredPoints
+	return neighbors
 }
 
 func (node *Node) Range(min, max Point) []Point {
@@ -222,22 +234,7 @@ func (node *Node) Range(min, max Point) []Point {
 
 	var pointsInRange []Point
 
-	if len(node.Points) > 0 {
-		// This is a leaf node
-		for _, point := range node.Points {
-			inRange := true
-			for i := 0; i < point.Dim(); i++ {
-				if point.GetValue(i) < min.GetValue(i) || point.GetValue(i) > max.GetValue(i) {
-					inRange = false
-					break
-				}
-			}
-			if inRange {
-				pointsInRange = append(pointsInRange, point)
-			}
-		}
-	} else {
-		// This is not a leaf node
+	search := func(node *Node) bool {
 		inRange := true
 		for i := 0; i < node.Point.Dim(); i++ {
 			if node.Point.GetValue(i) < min.GetValue(i) || node.Point.GetValue(i) > max.GetValue(i) {
@@ -245,6 +242,21 @@ func (node *Node) Range(min, max Point) []Point {
 				break
 			}
 		}
+
+		return inRange
+	}
+
+	if len(node.Points) > 0 {
+		// This is a leaf node
+		for _, point := range node.Points {
+			inRange := search(node)
+			if inRange {
+				pointsInRange = append(pointsInRange, point)
+			}
+		}
+	} else {
+		// This is not a leaf node
+		inRange := search(node)
 
 		if inRange {
 			pointsInRange = append(pointsInRange, node.Point)
