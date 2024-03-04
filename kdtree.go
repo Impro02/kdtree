@@ -194,11 +194,29 @@ func (node *Node) KNN(target Point, k int) []Point {
 
 func (node *Node) SearchRadius(target Point, radius float64) []Point {
 	var result []Point
-	node.searchRadius(target, radius, &result)
+	resultChan := make(chan Point)
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go node.searchRadius(target, radius, resultChan, &wg)
+
+	// Close resultChan when all goroutines have finished
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect results from channel
+	for point := range resultChan {
+		result = append(result, point)
+	}
+
 	return result
 }
 
-func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
+func (node *Node) searchRadius(target Point, radius float64, resultChan chan<- Point, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	if node == nil {
 		return
 	}
@@ -207,36 +225,31 @@ func (node *Node) searchRadius(target Point, radius float64, result *[]Point) {
 		for _, point := range node.Points {
 			d := target.Distance(point)
 			if d <= radius*radius {
-				*result = append(*result, point)
+				resultChan <- point
 			}
 		}
 	} else {
-		// Calculate the distance from the target point to the current node's point
 		d := target.Distance(node.Point)
-
-		// If the current node's point is within the radius, add it to the result
 		if d <= radius*radius {
-			*result = append(*result, node.Point)
+			resultChan <- node.Point
 		}
 
-		// Calculate the distance from the target point to the current node's splitting plane
 		planeDistance := target.PlaneDistance(node.Point, node.Axis)
 
-		// First, search the subtree on the same side as the target point
-		if planeDistance < 0 {
-			node.Left.searchRadius(target, radius, result)
-		} else {
-			node.Right.searchRadius(target, radius, result)
+		// Determine which subtree to search first
+		closeBranch, farBranch := node.Left, node.Right
+		if planeDistance > 0 {
+			closeBranch, farBranch = node.Right, node.Left
 		}
 
-		// If the splitting plane intersects the search sphere, also search the other subtree
-		if planeDistance <= radius*radius {
-			if planeDistance < 0 {
-				node.Right.searchRadius(target, radius, result)
-			} else {
-				node.Left.searchRadius(target, radius, result)
-			}
+		// Search the close branch
+		wg.Add(1)
+		go closeBranch.searchRadius(target, radius, resultChan, wg)
+
+		// If the hyper-sphere intersects the hyper-plane, search the far branch
+		if planeDistance*planeDistance <= radius*radius {
+			wg.Add(1)
+			go farBranch.searchRadius(target, radius, resultChan, wg)
 		}
 	}
-
 }

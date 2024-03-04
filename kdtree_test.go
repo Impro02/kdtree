@@ -1,11 +1,22 @@
 package kdtree
 
 import (
+	"fmt"
 	"math/rand"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func comparePoints(a, b Point) bool {
+	for i := range a.Dim() {
+		if a.GetValue(i) != b.GetValue(i) {
+			return a.GetValue(i) < b.GetValue(i)
+		}
+	}
+	return false
+}
 
 func TestKNearestNeighbors(t *testing.T) {
 	points := []Point{
@@ -89,6 +100,9 @@ func TestNeighborsWithinRadius(t *testing.T) {
 		&PointBase{Vec: []float64{3, 3}},
 	}
 
+	sort.Slice(expectedPoint, func(i, j int) bool { return comparePoints(expectedPoint[i], expectedPoint[j]) })
+	sort.Slice(neighbors, func(i, j int) bool { return comparePoints(neighbors[i], neighbors[j]) })
+
 	assert.Equal(t, expectedPoint, neighbors)
 
 	target = &PointBase{Vec: []float64{42, 42}}
@@ -101,6 +115,9 @@ func TestNeighborsWithinRadius(t *testing.T) {
 		&PointBase{Vec: []float64{40, 40}},
 		&PointBase{Vec: []float64{41, 41}},
 	}
+
+	sort.Slice(expectedPoint, func(i, j int) bool { return comparePoints(expectedPoint[i], expectedPoint[j]) })
+	sort.Slice(neighbors, func(i, j int) bool { return comparePoints(neighbors[i], neighbors[j]) })
 
 	assert.Equal(t, expectedPoint, neighbors)
 }
@@ -193,6 +210,9 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 		&PointBase{Vec: []float64{0.38542887388874814, 0.5417771692037563}},
 	}
 
+	sort.Slice(expectedPoint, func(i, j int) bool { return comparePoints(expectedPoint[i], expectedPoint[j]) })
+	sort.Slice(neighbors, func(i, j int) bool { return comparePoints(neighbors[i], neighbors[j]) })
+
 	assert.Equal(t, expectedPoint, neighbors)
 
 	target = &PointBase{Vec: []float64{r.Float64(), r.Float64()}}
@@ -212,6 +232,9 @@ func TestNeighborsWithinRadiusLargeDataset(t *testing.T) {
 		&PointBase{Vec: []float64{0.7466782147046156, 0.40251297114855955}},
 	}
 
+	sort.Slice(expectedPoint, func(i, j int) bool { return comparePoints(expectedPoint[i], expectedPoint[j]) })
+	sort.Slice(neighbors, func(i, j int) bool { return comparePoints(neighbors[i], neighbors[j]) })
+
 	assert.Equal(t, expectedPoint, neighbors)
 }
 
@@ -227,12 +250,13 @@ func BenchmarkNeighborsWithinRadius(b *testing.B) {
 
 	kdTree := BuildKDTree(points, 0, 30)
 	target := &PointBase{Vec: []float64{0.5, 0.5}}
-	radius := 0.1
+	radii := []float64{0.1, 0.2, 0.3, 0.8, 1.5}
 
-	// Reset the timer to exclude the setup time
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		kdTree.SearchRadius(target, radius)
+	for _, radius := range radii {
+		b.Run(fmt.Sprintf("radius=%.2f", radius), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				kdTree.SearchRadius(target, radius)
+			}
+		})
 	}
 }
