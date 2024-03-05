@@ -2,6 +2,7 @@ package kdtree
 
 import (
 	"container/heap"
+	"container/list"
 	"math"
 	"sort"
 	"sync"
@@ -193,63 +194,52 @@ func (node *Node) KNN(target Point, k int) []Point {
 }
 
 func (node *Node) SearchRadius(target Point, radius float64) []Point {
+	squaredRadius := radius * radius
+
 	var result []Point
-	resultChan := make(chan Point)
-	var wg sync.WaitGroup
+	stack := list.New()
+	stack.PushBack(node)
 
-	wg.Add(1)
-	go node.searchRadius(target, radius, resultChan, &wg)
+	for stack.Len() > 0 {
+		// Pop the top node from the stack
+		element := stack.Back()
+		stackNode := element.Value.(*Node)
+		stack.Remove(element)
 
-	// Close resultChan when all goroutines have finished
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+		if stackNode == nil {
+			continue
+		}
 
-	// Collect results from channel
-	for point := range resultChan {
-		result = append(result, point)
+		if len(stackNode.Points) > 0 {
+			for _, point := range stackNode.Points {
+				d := target.Distance(point)
+				if d <= squaredRadius {
+					result = append(result, point)
+				}
+			}
+		} else {
+			d := target.Distance(stackNode.Point)
+			if d <= squaredRadius {
+				result = append(result, stackNode.Point)
+			}
+
+			planeDistance := target.PlaneDistance(stackNode.Point, stackNode.Axis)
+
+			// Determine which subtree to search first
+			closeBranch, farBranch := stackNode.Left, stackNode.Right
+			if planeDistance > 0 {
+				closeBranch, farBranch = stackNode.Right, stackNode.Left
+			}
+
+			// Push the close branch to the stack
+			stack.PushBack(closeBranch)
+
+			// If the hyper-sphere intersects the hyper-plane, push the far branch to the stack
+			if planeDistance*planeDistance <= squaredRadius {
+				stack.PushBack(farBranch)
+			}
+		}
 	}
 
 	return result
-}
-
-func (node *Node) searchRadius(target Point, radius float64, resultChan chan<- Point, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	if node == nil {
-		return
-	}
-
-	if len(node.Points) > 0 {
-		for _, point := range node.Points {
-			d := target.Distance(point)
-			if d <= radius*radius {
-				resultChan <- point
-			}
-		}
-	} else {
-		d := target.Distance(node.Point)
-		if d <= radius*radius {
-			resultChan <- node.Point
-		}
-
-		planeDistance := target.PlaneDistance(node.Point, node.Axis)
-
-		// Determine which subtree to search first
-		closeBranch, farBranch := node.Left, node.Right
-		if planeDistance > 0 {
-			closeBranch, farBranch = node.Right, node.Left
-		}
-
-		// Search the close branch
-		wg.Add(1)
-		go closeBranch.searchRadius(target, radius, resultChan, wg)
-
-		// If the hyper-sphere intersects the hyper-plane, search the far branch
-		if planeDistance*planeDistance <= radius*radius {
-			wg.Add(1)
-			go farBranch.searchRadius(target, radius, resultChan, wg)
-		}
-	}
 }
